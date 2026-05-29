@@ -102,15 +102,107 @@ blender --background $HAND_BLEND_PATH \
 > Bone names in the rig must match `FINGER_BONES` in `blender/generate_hand_dataset.py`.
 > Edit those names to match your rig if needed.
 
-### 4. Option B — Use FurElise / PianoVAM real datasets
+### 4. Option B — Use FürElise / PianoVAM real datasets
+
+#### FürElise (Stanford SIGGRAPH Asia 2024)
+> **License:** CC BY-NC 4.0 — non-commercial research use only.
+> 10 hours of 3D hand motion from 15 elite pianists, 153 pieces, 59.94 fps.
+> Hosted on Hugging Face: https://huggingface.co/datasets/rcwang/for_elise
 
 ```bash
-# Download FurElise
-# (follow instructions at https://for-elise.github.io/)
-# Place clips under data/raw/videos/ with labels.csv
+# 1. Install git-lfs (required for large file download)
+sudo apt-get install -y git-lfs
+git lfs install
 
-# Or PianoVAM (see paper for download link)
+# 2. Clone the dataset repo (skip the raw zip — it's too large to clone directly)
+#    GIT_LFS_SKIP_SMUDGE=1 avoids downloading all LFS blobs upfront
+GIT_LFS_SKIP_SMUDGE=1 git clone git@hf.co:datasets/rcwang/for_elise
+cd for_elise
+
+# 3. Download the actual data (~44 GB) via the provided shell script
+sh ./download_data.sh
+cd ..
 ```
+
+> **Note:** You need a Hugging Face account and SSH key configured.
+> If you prefer HTTPS over SSH, use:
+> `GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/datasets/rcwang/for_elise`
+> and authenticate with your HF token when prompted.
+
+The dataset structure per piece looks like:
+```
+for_elise/dataset/<piece_id>/
+├── motion.pkl        # dict with left/right → joints (Nx21x3), mano_params, verts (Nx778x3)
+├── midi.mid          # synchronized MIDI
+├── audio.mp3         # synthesized audio
+└── vis/              # 3D visualizer assets
+```
+
+To use the 3D hand vertices as input to our pipeline instead of raw video silhouettes,
+add a data adapter in `data/dataset.py` that reads `motion.pkl` and projects
+`verts` (Nx778x3) through a virtual camera to produce per-frame 2D masks.
+This is the cleanest path since the ground-truth meshes give perfect silhouettes:
+
+```python
+import pickle, numpy as np
+
+with open("for_elise/dataset/0/motion.pkl", "rb") as f:
+    data = pickle.load(f)
+
+left_joints  = data["left"]["joints"]   # (N, 21, 3) — 3D joint positions
+right_joints = data["right"]["joints"]  # (N, 21, 3)
+left_verts   = data["left"]["mano_params"]["verts"]   # (N, 778, 3) — full mesh
+```
+
+---
+
+#### PianoVAM (ISMIR 2025)
+> **License:** CC BY-NC 4.0 — non-commercial research use only.
+> 21 hours, 106 recordings from 10 amateur pianists.
+> Includes synchronized top-view video, audio, MIDI, hand landmarks, fingering labels.
+> Paper: https://arxiv.org/abs/2509.08800
+> Code & dataset: https://github.com/yonghyunk1m/PianoVAM-Code
+
+```bash
+# 1. Install git-lfs
+sudo apt-get install -y git-lfs
+git lfs install
+
+# 2. Clone the code repo (contains download scripts and preprocessing tools)
+git clone https://github.com/yonghyunk1m/PianoVAM-Code.git
+cd PianoVAM-Code
+
+# 3. Install dependencies for their preprocessing scripts
+pip install -r requirements.txt   # if present, otherwise: pip install numpy opencv-python
+
+# 4. Download the dataset from Hugging Face
+#    The dataset is gated — you must first accept the license at:
+#    https://huggingface.co/datasets/yonghyunk1m/PianoVAM  (exact HF slug from their repo)
+#    Then log in:
+pip install huggingface_hub
+huggingface-cli login   # paste your HF token
+
+# 5. Use their provided download script or pull directly:
+python -c "
+from huggingface_hub import snapshot_download
+snapshot_download(repo_id='yonghyunk1m/PianoVAM', repo_type='dataset', local_dir='../data/raw/pianovam')
+"
+cd ..
+```
+
+PianoVAM provides top-view videos (1080p/60fps) of hands on the keyboard, which
+feed directly into `utils/silhouette.py` via MediaPipe. Place the clips and run:
+
+```bash
+# Build a labels.csv pointing to PianoVAM clips
+# (you will need to define good/poor labels — PianoVAM provides fingering labels
+#  which can be used as a proxy: correct fingering = good, incorrect = poor)
+python scripts/preprocess.py --dataset video --data_root data/raw/pianovam
+```
+
+---
+
+#### After downloading either dataset, continue with step 5 (preprocessing).
 
 ### 5. Preprocess: convert clips → cached tensors
 
