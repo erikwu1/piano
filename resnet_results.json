@@ -1,0 +1,30 @@
+{
+  "epoch": 32,
+  "macro_f1": 0.7075144482542746,
+  "accuracy": 0.7079166666666666,
+  "confusion_matrix": [
+    [
+      805,
+      395
+    ],
+    [
+      306,
+      894
+    ]
+  ],
+  "model": "resnet18_silhouette",
+  "config": {
+    "cache_dir": "/home/arteemanxu/data/processed",
+    "epochs": 40,
+    "batch_size": 64,
+    "lr": 0.001,
+    "img_size": 64,
+    "thicken": 3,
+    "val_frac": 0.2,
+    "seed": 0,
+    "augment": false,
+    "out": "~/data/processed/resnet_baseline"
+  },
+  "n_train": 9600,
+  "n_val": 2400
+}

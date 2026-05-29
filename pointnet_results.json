@@ -1,0 +1,28 @@
+{
+  "epoch": 38,
+  "macro_f1": 0.8241588515045113,
+  "accuracy": 0.8241666666666667,
+  "confusion_matrix": [
+    [
+      981,
+      219
+    ],
+    [
+      203,
+      997
+    ]
+  ],
+  "config": {
+    "cache_dir": "/home/arteemanxu/data/processed",
+    "epochs": 40,
+    "batch_size": 32,
+    "lr": 0.001,
+    "n_points": 1024,
+    "val_frac": 0.2,
+    "seed": 0,
+    "augment": false,
+    "out": "~/data/processed/pointnet_baseline"
+  },
+  "n_train": 9600,
+  "n_val": 2400
+}
